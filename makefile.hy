@@ -31,6 +31,36 @@ OBJS = \
 	vm.o\
 ]])
 
+(SET "OBJS" [
+	"bio.o"
+	"console.o"
+	"exec.o"
+	"file.o"
+	"fs.o"
+	"ide.o"
+	"ioapic.o"
+	"kalloc.o"
+	"kbd.o"
+	"lapic.o"
+	"log.o"
+	"main.o"
+	"mp.o"
+	"picirq.o"
+	"pipe.o"
+	"proc.o"
+	"sleeplock.o"
+	"spinlock.o"
+	"string.o"
+	"swtch.o"
+	"syscall.o"
+	"sysfile.o"
+	"sysproc.o"
+	"trapasm.o"
+	"trap.o"
+	"uart.o"
+	"vectors.o"
+	"vm.o" ])
+
 #[[
 # Cross-compiling (e.g., on Mac OS X)
 # TOOLPREFIX = i386-jos-elf
@@ -178,12 +208,21 @@ initcode: initcode.S
 	$(OBJDUMP) -S initcode.o > initcode.asm
 ]])
 
-(QUOTE-RULE #[[
-kernel: $(OBJS) entry.o entryother initcode kernel.ld
-	$(LD) $(LDFLAGS) -T kernel.ld -o kernel entry.o $(OBJS) -b binary initcode entryother
-	$(OBJDUMP) -S kernel > kernel.asm
-	$(OBJDUMP) -t kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernel.sym
-]])
+(RULE
+	:target "kernel"
+	:deps ["$(OBJS)" "entry.o" "entryother" "initcode" "kernel.ld"]
+	:recipes [
+		"$(LD) $(LDFLAGS) -T kernel.ld -o kernel entry.o $(OBJS) -b binary initcode entryother"
+		" $(OBJDUMP) -S kernel > kernel.asm "
+		" $(OBJDUMP) -t kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernel.sym "
+	])
+
+; (QUOTE-RULE #[[
+; kernel: $(OBJS) entry.o entryother initcode kernel.ld
+; 	$(LD) $(LDFLAGS) -T kernel.ld -o kernel entry.o $(OBJS) -b binary initcode entryother
+; 	$(OBJDUMP) -S kernel > kernel.asm
+; 	$(OBJDUMP) -t kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernel.sym
+; ]])
 
 (QUOTE-RULE #[[
 # kernelmemfs is a copy of kernel that maintains the
@@ -201,8 +240,7 @@ kernelmemfs: $(MEMFSOBJS) entry.o entryother initcode kernel.ld fs.img
 
 (RULE
 	:target "tags"
-	; ******** UNCOMMENT THIS **********
-	; :deps [" $(OBJS)" "entryother.S" "_init"]
+	:deps (+ (GET "OBJS") ["entryother.S" "_init"])
 	:recipes [
 		"etags *.S *.c"
 	])
@@ -282,23 +320,38 @@ UPROGS=\
 	_zombie\
 ]])
 
-(QUOTE-RULE #[[
-fs.img: mkfs README $(UPROGS)
-	./mkfs fs.img README $(UPROGS)
-]])
+(RULE 
+	:target "fs.img"
+	:deps ["mkfs" "README" " $(UPROGS)"]
+	:recipes [
+		"./mkfs fs.img README $(UPROGS)"	
+	])
+; (QUOTE-RULE #[[
+; fs.img: mkfs README $(UPROGS)
+; 	./mkfs fs.img README $(UPROGS)
+; ]])
 
 (QUOTE-RULE #[[
 -include *.d
 ]])
 
-(QUOTE-RULE #[[
-clean: 
-	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
-	*.o *.d *.asm *.sym vectors.S bootblock entryother \
-	initcode initcode.out kernel xv6.img fs.img kernelmemfs \
-	xv6memfs.img mkfs .gdbinit \
-	$(UPROGS)
-]])
+(RULE
+	:target "clean"
+	:recipes [
+		"rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg"
+		"rm -f *.o *.d *.asm *.sym vectors.S bootblock entryother"
+		"rm -f initcode initcode.out kernel xv6.img fs.img kernelmemfs"
+		"rm -f xv6memfs.img mkfs .gdbinit"
+		"rm -f $(UPROGS)"])
+
+; (QUOTE-RULE #[[
+; clean: 
+; 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
+; 	*.o *.d *.asm *.sym vectors.S bootblock entryother \
+; 	initcode initcode.out kernel xv6.img fs.img kernelmemfs \
+; 	xv6memfs.img mkfs .gdbinit \
+; 	$(UPROGS)
+; ]])
 
 (QUOTE-RULE #[[
 # make a printout
@@ -337,37 +390,74 @@ endif
 QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 $(QEMUEXTRA)
 ]])
 
-(QUOTE-RULE #[[
-qemu: fs.img xv6.img
-	$(QEMU) -serial mon:stdio $(QEMUOPTS)
-]])
+(RULE 
+	:target "qemu"
+	:deps ["fs.img" "xv6.img"]
+	:recipes [
+		"$(QEMU) -serial mon:stdio $(QEMUOPTS)"	
+	])
 
-(QUOTE-RULE #[[
-qemu-memfs: xv6memfs.img
-	$(QEMU) -drive file=xv6memfs.img,index=0,media=disk,format=raw -smp $(CPUS) -m 256
-]])
+; (QUOTE-RULE #[[
+; qemu: fs.img xv6.img
+; 	$(QEMU) -serial mon:stdio $(QEMUOPTS)
+; ]])
 
-(QUOTE-RULE #[[
-qemu-nox: fs.img xv6.img
-	$(QEMU) -nographic $(QEMUOPTS)
-]])
+(RULE
+	:target "qemu-memfs"
+	:deps ["xv6memfs.img"]
+	:recipes [
+		"$(QEMU) -drive file=xv6memfs.img,index=0,media=disk,format=raw -smp $(CPUS) -m 256"	
+	])
+
+; (QUOTE-RULE #[[
+; qemu-memfs: xv6memfs.img
+; 	$(QEMU) -drive file=xv6memfs.img,index=0,media=disk,format=raw -smp $(CPUS) -m 256
+; ]])
+
+(RULE
+	:target "qemu-nox"
+	:deps ["fs.img" "xv6.img"]
+	:recipes [
+		"$(QEMU) -nographic $(QEMUOPTS)"	
+	])
+
+; (QUOTE-RULE #[[
+; qemu-nox: fs.img xv6.img
+; 	$(QEMU) -nographic $(QEMUOPTS)
+; ]])
 
 (QUOTE-RULE #[[
 .gdbinit: .gdbinit.tmpl
 	sed "s/localhost:1234/localhost:$(GDBPORT)/" < $^ > $@
 ]])
 
-(QUOTE-RULE #[[
-qemu-gdb: fs.img xv6.img .gdbinit
-	@echo "*** Now run 'gdb'." 1>&2
-	$(QEMU) -serial mon:stdio $(QEMUOPTS) -S $(QEMUGDB)
-]])
+(RULE
+	:target "qemu-gdb"
+	:deps ["fs.img" "xv6.img" ".gdbinit"]
+	:recipes [
+		"@echo \"*** Now run 'gdb'.\" 1>&2"
+		"$(QEMU) -serial mon:stdio $(QEMUOPTS) -S $(QEMUGDB)"	
+	])
 
-(QUOTE-RULE #[[
-qemu-nox-gdb: fs.img xv6.img .gdbinit
-	@echo "*** Now run 'gdb'." 1>&2
-	$(QEMU) -nographic $(QEMUOPTS) -S $(QEMUGDB)
-]])
+; (QUOTE-RULE #[[
+; qemu-gdb: fs.img xv6.img .gdbinit
+; 	@echo "*** Now run 'gdb'." 1>&2
+; 	$(QEMU) -serial mon:stdio $(QEMUOPTS) -S $(QEMUGDB)
+; ]])
+
+(RULE
+	:target "qemu-nox-gdb"
+	:deps ["fs.img" "xv6.img" ".gdbinit"]
+	:recipes [
+		"@echo \"*** Now run 'gdb'.\" 1>&2"
+		"$(QEMU) -nographic $(QEMUOPTS) -S $(QEMUGDB)"	
+	])
+
+; (QUOTE-RULE #[[
+; qemu-nox-gdb: fs.img xv6.img .gdbinit
+; 	@echo "*** Now run 'gdb'." 1>&2
+; 	$(QEMU) -nographic $(QEMUOPTS) -S $(QEMUGDB)
+; ]])
 
 (QUOTE-RULE #[[
 # CUT HERE

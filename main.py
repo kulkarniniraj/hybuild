@@ -26,7 +26,7 @@ def _rule(target, deps, recipes, phony):
 
     def _process_one_recipe(rule):
         if isinstance(rule, str):
-            return rule
+            return rule.strip()
         else:
             return ' '.join([_process_token(tok) for tok in rule])
     
