@@ -16,7 +16,7 @@ def _quote_rule(string):
 def QUOTE_RULE(string):
     return _quote_rule(string)
 
-def _rule(target, deps, recipes):
+def _rule(target, deps, recipes, phony):
     def _process_token(tok: str):
         if tok.startswith('$'):
             val = _get(tok.lstrip('$'))
@@ -31,6 +31,8 @@ def _rule(target, deps, recipes):
             return ' '.join([_process_token(tok) for tok in rule])
     
     lines = []
+    if phony is True:
+        lines.append(f'.PHONY: {target}')
     lines.append(f'{target}: {" ".join(deps)}')
     for rec in recipes:
         lines.append(f'\t{_process_one_recipe(rec)}')
@@ -39,8 +41,8 @@ def _rule(target, deps, recipes):
             f.write(f'{line}\n')
         f.write('\n')
 
-def RULE(target, deps = [], recipes = []):
-    return _rule(target, deps, recipes)
+def RULE(target, deps = [], recipes = [], phony = False):
+    return _rule(target, deps, recipes, phony)
 
 def _set(var, val):
     STATE[var] = val

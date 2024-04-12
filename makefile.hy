@@ -199,15 +199,30 @@ kernelmemfs: $(MEMFSOBJS) entry.o entryother initcode kernel.ld fs.img
 	$(OBJDUMP) -t kernelmemfs | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernelmemfs.sym
 ]])
 
-(QUOTE-RULE #[[
-tags: $(OBJS) entryother.S _init
-	etags *.S *.c
-]])
+(RULE
+	:target "tags"
+	; ******** UNCOMMENT THIS **********
+	; :deps [" $(OBJS)" "entryother.S" "_init"]
+	:recipes [
+		"etags *.S *.c"
+	])
 
-(QUOTE-RULE #[[
-vectors.S: vectors.pl
-	./vectors.pl > vectors.S
-]])
+; (QUOTE-RULE #[[
+; tags: $(OBJS) entryother.S _init
+; 	etags *.S *.c
+; ]])
+
+(RULE
+	:target "vectors.S"
+	:deps ["vectors.pl"]
+	:recipes [
+		"./vectors.pl > vectors.S"	
+	])
+
+; (QUOTE-RULE #[[
+; vectors.S: vectors.pl
+; 	./vectors.pl > vectors.S
+; ]])
 
 (QUOTE-RULE #[[
 ULIB = ulib.o usys.o printf.o umalloc.o
@@ -228,10 +243,17 @@ _forktest: forktest.o $(ULIB)
 	$(OBJDUMP) -S _forktest > forktest.asm
 ]])
 
-(QUOTE-RULE #[[
-mkfs: mkfs.c fs.h
-	gcc -Werror -Wall -o mkfs mkfs.c
-]])
+(RULE 
+	:target "mkfs"
+	:deps ["mkfs.c" "fs.h"]
+	:recipes [
+		"gcc -Werror -Wall -o mkfs mkfs.c"	
+	])
+
+; (QUOTE-RULE #[[
+; mkfs: mkfs.c fs.h
+; 	gcc -Werror -Wall -o mkfs mkfs.c
+; ]])
 
 (QUOTE-RULE #[[
 # Prevent deletion of intermediate files, e.g. cat.o, after first build, so
