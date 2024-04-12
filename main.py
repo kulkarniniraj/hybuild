@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 import os
 import fire
+import sh
 
 STATE = {}
 
@@ -17,12 +18,18 @@ def QUOTE_RULE(string):
     return _quote_rule(string)
 
 def _rule(target, deps, recipes, phony):
+    def _stringify_token(val: str):
+        if isinstance(val, list):
+            return ' '.join(val)
+        else:
+            return str(val)
+        
     def _process_token(tok: str):
         if tok.startswith('$'):
             val = _get(tok.lstrip('$'))
-            return val
+            return _stringify_token(val)
         else:
-            return tok
+            return str(tok)
 
     def _process_one_recipe(rule):
         if isinstance(rule, str):
@@ -56,6 +63,12 @@ def _get(var):
 def GET(var):
     return _get(var)
 
+def _get_str(var):
+    return str(STATE.get(var, ''))
+
+def GET_STR(var):
+    return _get_str(var)
+
 def _is_set(var):
     return var in STATE
 
@@ -64,6 +77,12 @@ def IS_SET(var):
 
 def IS_NOT_SET(var):
     return not _is_set(var)
+
+def _run(cmd):
+    return sh.bash('-c', cmd)
+
+def RUN(cmd: str):
+    return _run(cmd)
 
 def main(spec_file):
     target = Path(spec_file)
