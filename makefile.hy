@@ -390,11 +390,19 @@ endif
 QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 $(QEMUEXTRA)
 ]])
 
+(SET "CPUS" 2)
+(SET "QEMUOPTS"  
+	 (+ "-drive file=fs.img,index=1,media=disk,format=raw -drive "
+	 	"file=xv6.img,index=0,media=disk,format=raw -smp "
+		(GET-STR "CPUS")
+		" -m 512 " 
+		(GET-STR "QEMUEXTRA")))
+
 (RULE 
 	:target "qemu"
 	:deps ["fs.img" "xv6.img"]
 	:recipes [
-		"$(QEMU) -serial mon:stdio $(QEMUOPTS)"	
+		[" $(QEMU) -serial mon:stdio" "$QEMUOPTS"]
 	])
 
 ; (QUOTE-RULE #[[
@@ -406,7 +414,7 @@ QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,
 	:target "qemu-memfs"
 	:deps ["xv6memfs.img"]
 	:recipes [
-		"$(QEMU) -drive file=xv6memfs.img,index=0,media=disk,format=raw -smp $(CPUS) -m 256"	
+		[" $(QEMU) -drive file=xv6memfs.img,index=0,media=disk,format=raw -smp" "$CPUS" "-m 256"]
 	])
 
 ; (QUOTE-RULE #[[
@@ -426,10 +434,17 @@ QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,
 ; 	$(QEMU) -nographic $(QEMUOPTS)
 ; ]])
 
-(QUOTE-RULE #[[
-.gdbinit: .gdbinit.tmpl
-	sed "s/localhost:1234/localhost:$(GDBPORT)/" < $^ > $@
-]])
+(RULE 
+	:target ".gdbinit" 
+	:deps [".gdbinit.tmpl"]
+	:recipes [
+		"sed \"s/localhost:1234/localhost:$(GDBPORT)/\" < $^ > $@"
+	])
+
+; (QUOTE-RULE #[[
+; .gdbinit: .gdbinit.tmpl
+; 	sed "s/localhost:1234/localhost:$(GDBPORT)/" < $^ > $@
+; ]])
 
 (RULE
 	:target "qemu-gdb"
@@ -459,56 +474,100 @@ QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,
 ; 	$(QEMU) -nographic $(QEMUOPTS) -S $(QEMUGDB)
 ; ]])
 
-(QUOTE-RULE #[[
-# CUT HERE
-# prepare dist for students
-# after running make dist, probably want to
-# rename it to rev0 or rev1 or so on and then
-# check in that version.
+; (QUOTE-RULE #[[
+; # CUT HERE
+; # prepare dist for students
+; # after running make dist, probably want to
+; # rename it to rev0 or rev1 or so on and then
+; # check in that version.
 
-EXTRA=\
-	mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c\
-	ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c\
-	printf.c umalloc.c\
-	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
-	.gdbinit.tmpl gdbutil\
-]])
+; EXTRA=\
+; 	mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c\
+; 	ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c\
+; 	printf.c umalloc.c\
+; 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
+; 	.gdbinit.tmpl gdbutil\
+; ]])
 
-(QUOTE-RULE #[[
-dist:
-	rm -rf dist
-	mkdir dist
-	for i in $(FILES); \
-	do \
-		grep -v PAGEBREAK $$i >dist/$$i; \
-	done
-	sed '/CUT HERE/,$$d' Makefile >dist/Makefile
-	echo >dist/runoff.spec
-	cp $(EXTRA) dist
-]])
+(SET "EXTRA" [
+	"mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c"
+	"ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c"
+	"printf.c umalloc.c"
+	"README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list"
+	".gdbinit.tmpl gdbutil" ])
 
-(QUOTE-RULE #[[
-dist-test:
-	rm -rf dist
-	make dist
-	rm -rf dist-test
-	mkdir dist-test
-	cp dist/* dist-test
-	cd dist-test; $(MAKE) print
-	cd dist-test; $(MAKE) bochs || true
-	cd dist-test; $(MAKE) qemu
-]])
+(RULE
+	:target "dist"
+	:phony True
+	:recipes [	
+		"rm -rf dist"
+		"mkdir dist"
+		"for i in $(FILES); \\"
+		"do \\"
+		"	grep -v PAGEBREAK $$i >dist/$$i; \\"
+		"done"
+		"sed '/CUT HERE/,$$d' Makefile >dist/Makefile"
+		"echo >dist/runoff.spec"
+		["cp" "$EXTRA" "dist"] ])
 
-(QUOTE-RULE #[[
-# update this rule (change rev#) when it is time to
-# make a new revision.
-tar:
-	rm -rf /tmp/xv6
-	mkdir -p /tmp/xv6
-	cp dist/* dist/.gdbinit.tmpl /tmp/xv6
-	(cd /tmp; tar cf - xv6) | gzip >xv6-rev10.tar.gz  # the next one will be 10 (9/17)
-]])
+; (QUOTE-RULE #[[
+; dist:
+; 	rm -rf dist
+; 	mkdir dist
+; 	for i in $(FILES); \
+; 	do \
+; 		grep -v PAGEBREAK $$i >dist/$$i; \
+; 	done
+; 	sed '/CUT HERE/,$$d' Makefile >dist/Makefile
+; 	echo >dist/runoff.spec
+; 	cp $(EXTRA) dist
+; ]])
 
-(QUOTE-RULE #[[
-.PHONY: dist-test dist
-]])
+(RULE
+	:target "dist-test"
+	:phony True
+	:recipes [
+		"rm -rf dist"
+		"make dist"
+		"rm -rf dist-test"
+		"mkdir dist-test"
+		"cp dist/* dist-test"
+		"cd dist-test; $(MAKE) print"
+		"cd dist-test; $(MAKE) bochs || true"
+		"cd dist-test; $(MAKE) qemu"		
+	])
+
+; (QUOTE-RULE #[[
+; dist-test:
+; 	rm -rf dist
+; 	make dist
+; 	rm -rf dist-test
+; 	mkdir dist-test
+; 	cp dist/* dist-test
+; 	cd dist-test; $(MAKE) print
+; 	cd dist-test; $(MAKE) bochs || true
+; 	cd dist-test; $(MAKE) qemu
+; ]])
+
+(RULE
+	:target "tar"
+	:recipes [
+		"rm -rf /tmp/xv6"
+		"mkdir -p /tmp/xv6"
+		"cp dist/* dist/.gdbinit.tmpl /tmp/xv6"
+		"(cd /tmp; tar cf - xv6) | gzip >xv6-rev10.tar.gz "
+	])
+
+; (QUOTE-RULE #[[
+; # update this rule (change rev#) when it is time to
+; # make a new revision.
+; tar:
+; 	rm -rf /tmp/xv6
+; 	mkdir -p /tmp/xv6
+; 	cp dist/* dist/.gdbinit.tmpl /tmp/xv6
+; 	(cd /tmp; tar cf - xv6) | gzip >xv6-rev10.tar.gz  # the next one will be 10 (9/17)
+; ]])
+
+; (QUOTE-RULE #[[
+; .PHONY: dist-test dist
+; ]])
