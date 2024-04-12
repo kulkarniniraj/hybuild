@@ -377,18 +377,27 @@ bochs : fs.img xv6.img
 	bochs -q
 ]])
 
-(QUOTE-RULE #[[
-# try to generate a unique GDB port
-GDBPORT = $(shell expr `id -u` % 5000 + 25000)
-# QEMU's gdb stub command line changed in 0.11
-QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
-	then echo "-gdb tcp::$(GDBPORT)"; \
-	else echo "-s -p $(GDBPORT)"; fi)
-ifndef CPUS
-CPUS := 2
-endif
-QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 $(QEMUEXTRA)
-]])
+; (QUOTE-RULE #[[
+; # try to generate a unique GDB port
+; GDBPORT = $(shell expr `id -u` % 5000 + 25000)
+; # QEMU's gdb stub command line changed in 0.11
+; QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
+; 	then echo "-gdb tcp::$(GDBPORT)"; \
+; 	else echo "-s -p $(GDBPORT)"; fi)
+; ]])
+
+(SET "GDBPORT" (+ (% (int (RUN "id -u")) 5000) 25000))
+(SET "QEMUGDB" 
+	(if (!= (RUN "qemu-system-i386 -help | grep -q '^-gdb'") "")
+		(+ "-gdb tcp::" (GET-STR "GDBPORT"))
+		(+ "-s -p " (GET-STR "GDBPORT"))))
+
+; (QUOTE-RULE #[[
+; ifndef CPUS
+; CPUS := 2
+; endif
+; QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 $(QEMUEXTRA)
+; ]])
 
 (SET "CPUS" 2)
 (SET "QEMUOPTS"  
@@ -426,7 +435,7 @@ QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,
 	:target "qemu-nox"
 	:deps ["fs.img" "xv6.img"]
 	:recipes [
-		"$(QEMU) -nographic $(QEMUOPTS)"	
+		[" $(QEMU) -nographic" "$QEMUOPTS"]
 	])
 
 ; (QUOTE-RULE #[[
@@ -438,7 +447,7 @@ QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,
 	:target ".gdbinit" 
 	:deps [".gdbinit.tmpl"]
 	:recipes [
-		"sed \"s/localhost:1234/localhost:$(GDBPORT)/\" < $^ > $@"
+		(+ "sed \"s/localhost:1234/localhost:" (GET-STR "GDBPORT") "/\" < $^ > $@")
 	])
 
 ; (QUOTE-RULE #[[
@@ -451,7 +460,7 @@ QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,
 	:deps ["fs.img" "xv6.img" ".gdbinit"]
 	:recipes [
 		"@echo \"*** Now run 'gdb'.\" 1>&2"
-		"$(QEMU) -serial mon:stdio $(QEMUOPTS) -S $(QEMUGDB)"	
+		[" $(QEMU) -serial mon:stdio" "$QEMUOPTS" "-S" "$QEMUGDB"]
 	])
 
 ; (QUOTE-RULE #[[
@@ -465,7 +474,7 @@ QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,
 	:deps ["fs.img" "xv6.img" ".gdbinit"]
 	:recipes [
 		"@echo \"*** Now run 'gdb'.\" 1>&2"
-		"$(QEMU) -nographic $(QEMUOPTS) -S $(QEMUGDB)"	
+		[" $(QEMU) -nographic" "$QEMUOPTS" "-S" "$QEMUGDB"]	
 	])
 
 ; (QUOTE-RULE #[[
