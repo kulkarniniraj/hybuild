@@ -84,6 +84,12 @@ def _run(cmd):
 def RUN(cmd: str):
     return _run(cmd)
 
+def RUN_SAFE(cmd: str):
+    try:
+        return _run(cmd)
+    except:
+        return ''
+    
 def main(spec_file):
     target = Path(spec_file)
     with open('Makefile', 'w') as f:
