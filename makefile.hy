@@ -301,30 +301,48 @@ _forktest: forktest.o $(ULIB)
 .PRECIOUS: %.o
 ]])
 
-(QUOTE-RULE #[[
-UPROGS=\
-	_cat\
-	_echo\
-	_forktest\
-	_grep\
-	_init\
-	_kill\
-	_ln\
-	_ls\
-	_mkdir\
-	_rm\
-	_sh\
-	_stressfs\
-	_usertests\
-	_wc\
-	_zombie\
-]])
+; (QUOTE-RULE #[[
+; UPROGS=\
+; 	_cat\
+; 	_echo\
+; 	_forktest\
+; 	_grep\
+; 	_init\
+; 	_kill\
+; 	_ln\
+; 	_ls\
+; 	_mkdir\
+; 	_rm\
+; 	_sh\
+; 	_stressfs\
+; 	_usertests\
+; 	_wc\
+; 	_zombie\
+; ]])
+
+(SET "UPROGS" [
+	"_cat"
+	"_echo"
+	"_forktest"
+	"_grep"
+	"_init"
+	"_kill"
+	"_ln"
+	"_ls"
+	"_mkdir"
+	"_rm"
+	"_sh"
+	"_stressfs"
+	"_usertests"
+	"_wc"
+	"_zombie"])
 
 (RULE 
 	:target "fs.img"
-	:deps ["mkfs" "README" " $(UPROGS)"]
+	:deps (+ ["mkfs" "README"] (GET "UPROGS"))
 	:recipes [
-		"./mkfs fs.img README $(UPROGS)"	
+		(+ "./mkfs fs.img README "	
+		   (.join " " (GET "UPROGS")))
 	])
 ; (QUOTE-RULE #[[
 ; fs.img: mkfs README $(UPROGS)
@@ -353,29 +371,60 @@ UPROGS=\
 ; 	$(UPROGS)
 ; ]])
 
-(QUOTE-RULE #[[
-# make a printout
-FILES = $(shell grep -v '^\#' runoff.list)
-PRINT = runoff.list runoff.spec README toc.hdr toc.ftr $(FILES)
-]])
+; (QUOTE-RULE #[[
+; # make a printout
+; FILES = $(shell grep -v '^\#' runoff.list)
+; PRINT = runoff.list runoff.spec README toc.hdr toc.ftr $(FILES)
+; ]])
 
-(QUOTE-RULE #[[
-xv6.pdf: $(PRINT)
-	./runoff
-	ls -l xv6.pdf
-]])
+(defn not-empty [lst] 
+	(list (filter (fn [x] (!= x "")) lst)))
 
-(QUOTE-RULE #[[
-print: xv6.pdf
-]])
+(defn split [txt] (.split txt "\n"))
 
-(QUOTE-RULE #[[
-# run in emulators
+(SET "FILES" (not-empty (split (RUN "grep -v '^\\#' ./xv6-public/runoff.list"))))
 
-bochs : fs.img xv6.img
-	if [ ! -e .bochsrc ]; then ln -s dot-bochsrc .bochsrc; fi
-	bochs -q
-]])
+(SET "PRINT" 
+ 	 (+ ["runoff.list" "runoff.spec" "README" "toc.hdr" "toc.ftr"] 
+ 	 	(GET "FILES")))
+
+; (print (GET "PRINT"))
+
+(RULE
+	:target "xv6.pdf"
+	:deps (GET "PRINT")
+	:recipes [
+		"./runoff"
+		"ls -l xv6.pdf"])
+
+(RULE
+	:target "print"
+	:deps ["xv6.pdf"])
+
+; (QUOTE-RULE #[[
+; xv6.pdf: $(PRINT)
+; 	./runoff
+; 	ls -l xv6.pdf
+; ]])
+
+; (QUOTE-RULE #[[
+; print: xv6.pdf
+; ]])
+
+(RULE
+	:target "bochs "
+	:deps ["fs.img" "xv6.img"]
+	:recipes [
+		"if [ ! -e .bochsrc ]; then ln -s dot-bochsrc .bochsrc; fi"
+		"bochs -q"])
+
+; (QUOTE-RULE #[[
+; # run in emulators
+
+; bochs : fs.img xv6.img
+; 	if [ ! -e .bochsrc ]; then ln -s dot-bochsrc .bochsrc; fi
+; 	bochs -q
+; ]])
 
 ; (QUOTE-RULE #[[
 ; # try to generate a unique GDB port
@@ -385,12 +434,27 @@ bochs : fs.img xv6.img
 ; 	then echo "-gdb tcp::$(GDBPORT)"; \
 ; 	else echo "-s -p $(GDBPORT)"; fi)
 ; ]])
+(defn is-valid-cmd [cmd]
+	(let [val (RUN-SAFE (+ "which " cmd))]
+		(if (!= val "")
+			True
+			False)))
+
+(SET "QEMU" (cond 
+	(is-valid-cmd "qemu") "qemu"
+	(is-valid-cmd "qemu-system-i386") "qemu-system-i386"
+	(is-valid-cmd "qemu-system-x86_64") "qemu-system-x86_64"))
 
 (SET "GDBPORT" (+ (% (int (RUN "id -u")) 5000) 25000))
 (SET "QEMUGDB" 
-	(if (!= (RUN "qemu-system-i386 -help | grep -q '^-gdb'") "")
+	(if (!= 
+			(RUN (+ 
+					(GET-STR "QEMU") 
+					" -help | grep -q '^-gdb'"))
+			"")
 		(+ "-gdb tcp::" (GET-STR "GDBPORT"))
 		(+ "-s -p " (GET-STR "GDBPORT"))))
+
 
 ; (QUOTE-RULE #[[
 ; ifndef CPUS
@@ -411,7 +475,7 @@ bochs : fs.img xv6.img
 	:target "qemu"
 	:deps ["fs.img" "xv6.img"]
 	:recipes [
-		[" $(QEMU) -serial mon:stdio" "$QEMUOPTS"]
+		["$QEMU" "-serial mon:stdio" "$QEMUOPTS"]
 	])
 
 ; (QUOTE-RULE #[[
@@ -423,7 +487,7 @@ bochs : fs.img xv6.img
 	:target "qemu-memfs"
 	:deps ["xv6memfs.img"]
 	:recipes [
-		[" $(QEMU) -drive file=xv6memfs.img,index=0,media=disk,format=raw -smp" "$CPUS" "-m 256"]
+		["$QEMU" "-drive file=xv6memfs.img,index=0,media=disk,format=raw -smp" "$CPUS" "-m 256"]
 	])
 
 ; (QUOTE-RULE #[[
@@ -435,7 +499,7 @@ bochs : fs.img xv6.img
 	:target "qemu-nox"
 	:deps ["fs.img" "xv6.img"]
 	:recipes [
-		[" $(QEMU) -nographic" "$QEMUOPTS"]
+		["$QEMU" "-nographic" "$QEMUOPTS"]
 	])
 
 ; (QUOTE-RULE #[[
@@ -460,7 +524,7 @@ bochs : fs.img xv6.img
 	:deps ["fs.img" "xv6.img" ".gdbinit"]
 	:recipes [
 		"@echo \"*** Now run 'gdb'.\" 1>&2"
-		[" $(QEMU) -serial mon:stdio" "$QEMUOPTS" "-S" "$QEMUGDB"]
+		["$QEMU" "-serial mon:stdio" "$QEMUOPTS" "-S" "$QEMUGDB"]
 	])
 
 ; (QUOTE-RULE #[[
@@ -474,7 +538,7 @@ bochs : fs.img xv6.img
 	:deps ["fs.img" "xv6.img" ".gdbinit"]
 	:recipes [
 		"@echo \"*** Now run 'gdb'.\" 1>&2"
-		[" $(QEMU) -nographic" "$QEMUOPTS" "-S" "$QEMUGDB"]	
+		["$QEMU" "-nographic" "$QEMUOPTS" "-S" "$QEMUGDB"]	
 	])
 
 ; (QUOTE-RULE #[[
