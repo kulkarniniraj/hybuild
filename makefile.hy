@@ -141,13 +141,6 @@ endif
 (SET "OBJDUMP" "objdump")
 (SET "OBJCOPY" "objcopy")
 
-; (QUOTE-RULE #[[
-; xv6.img: bootblock kernel
-; 	dd if=/dev/zero of=xv6.img count=10000
-; 	dd if=bootblock of=xv6.img conv=notrunc
-; 	dd if=kernel of=xv6.img seek=1 conv=notrunc
-; ]])
-
 (RULE 
 	:target "xv6.img" 
 	:deps ["bootblock" "kernel"] 
@@ -163,12 +156,6 @@ endif
 		"dd if=bootblock of=xv6memfs.img conv=notrunc"
 		"dd if=kernelmemfs of=xv6memfs.img seek=1 conv=notrunc"
 	])
-; (QUOTE-RULE #[[
-; xv6memfs.img: bootblock kernelmemfs
-; 	dd if=/dev/zero of=xv6memfs.img count=10000
-; 	dd if=bootblock of=xv6memfs.img conv=notrunc
-; 	dd if=kernelmemfs of=xv6memfs.img seek=1 conv=notrunc
-; ]])
 
 (RULE
 	:target "bootblock"
@@ -181,16 +168,6 @@ endif
 		["$OBJCOPY" "-S -O binary -j .text bootblock.o bootblock"]
 		"./sign.pl bootblock"
 	])
-
-; (QUOTE-RULE #[[
-; bootblock: bootasm.S bootmain.c
-; 	$(CC) $(CFLAGS) -fno-pic -O -nostdinc -I. -c bootmain.c
-; 	$(CC) $(CFLAGS) -fno-pic -nostdinc -I. -c bootasm.S
-; 	$(LD) $(LDFLAGS) -N -e start -Ttext 0x7C00 -o bootblock.o bootasm.o bootmain.o
-; 	$(OBJDUMP) -S bootblock.o > bootblock.asm
-; 	$(OBJCOPY) -S -O binary -j .text bootblock.o bootblock
-; 	./sign.pl bootblock
-; ]])
 
 (QUOTE-RULE #[[
 entryother: entryother.S
@@ -217,13 +194,6 @@ initcode: initcode.S
 		" $(OBJDUMP) -t kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernel.sym "
 	])
 
-; (QUOTE-RULE #[[
-; kernel: $(OBJS) entry.o entryother initcode kernel.ld
-; 	$(LD) $(LDFLAGS) -T kernel.ld -o kernel entry.o $(OBJS) -b binary initcode entryother
-; 	$(OBJDUMP) -S kernel > kernel.asm
-; 	$(OBJDUMP) -t kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernel.sym
-; ]])
-
 (QUOTE-RULE #[[
 # kernelmemfs is a copy of kernel that maintains the
 # disk image in memory instead of writing to a disk.
@@ -245,22 +215,12 @@ kernelmemfs: $(MEMFSOBJS) entry.o entryother initcode kernel.ld fs.img
 		"etags *.S *.c"
 	])
 
-; (QUOTE-RULE #[[
-; tags: $(OBJS) entryother.S _init
-; 	etags *.S *.c
-; ]])
-
 (RULE
 	:target "vectors.S"
 	:deps ["vectors.pl"]
 	:recipes [
 		"./vectors.pl > vectors.S"	
 	])
-
-; (QUOTE-RULE #[[
-; vectors.S: vectors.pl
-; 	./vectors.pl > vectors.S
-; ]])
 
 (QUOTE-RULE #[[
 ULIB = ulib.o usys.o printf.o umalloc.o
@@ -288,11 +248,6 @@ _forktest: forktest.o $(ULIB)
 		"gcc -Werror -Wall -o mkfs mkfs.c"	
 	])
 
-; (QUOTE-RULE #[[
-; mkfs: mkfs.c fs.h
-; 	gcc -Werror -Wall -o mkfs mkfs.c
-; ]])
-
 (QUOTE-RULE #[[
 # Prevent deletion of intermediate files, e.g. cat.o, after first build, so
 # that disk image changes after first build are persistent until clean.  More
@@ -300,25 +255,6 @@ _forktest: forktest.o $(ULIB)
 # http://www.gnu.org/software/make/manual/html_node/Chained-Rules.html
 .PRECIOUS: %.o
 ]])
-
-; (QUOTE-RULE #[[
-; UPROGS=\
-; 	_cat\
-; 	_echo\
-; 	_forktest\
-; 	_grep\
-; 	_init\
-; 	_kill\
-; 	_ln\
-; 	_ls\
-; 	_mkdir\
-; 	_rm\
-; 	_sh\
-; 	_stressfs\
-; 	_usertests\
-; 	_wc\
-; 	_zombie\
-; ]])
 
 (SET "UPROGS" [
 	"_cat"
@@ -344,10 +280,6 @@ _forktest: forktest.o $(ULIB)
 		(+ "./mkfs fs.img README "	
 		   (.join " " (GET "UPROGS")))
 	])
-; (QUOTE-RULE #[[
-; fs.img: mkfs README $(UPROGS)
-; 	./mkfs fs.img README $(UPROGS)
-; ]])
 
 (QUOTE-RULE #[[
 -include *.d
@@ -362,21 +294,6 @@ _forktest: forktest.o $(ULIB)
 		"rm -f xv6memfs.img mkfs .gdbinit"
 		"rm -f $(UPROGS)"])
 
-; (QUOTE-RULE #[[
-; clean: 
-; 	rm -f *.tex *.dvi *.idx *.aux *.log *.ind *.ilg \
-; 	*.o *.d *.asm *.sym vectors.S bootblock entryother \
-; 	initcode initcode.out kernel xv6.img fs.img kernelmemfs \
-; 	xv6memfs.img mkfs .gdbinit \
-; 	$(UPROGS)
-; ]])
-
-; (QUOTE-RULE #[[
-; # make a printout
-; FILES = $(shell grep -v '^\#' runoff.list)
-; PRINT = runoff.list runoff.spec README toc.hdr toc.ftr $(FILES)
-; ]])
-
 (defn not-empty [lst] 
 	(list (filter (fn [x] (!= x "")) lst)))
 
@@ -387,8 +304,6 @@ _forktest: forktest.o $(ULIB)
 (SET "PRINT" 
  	 (+ ["runoff.list" "runoff.spec" "README" "toc.hdr" "toc.ftr"] 
  	 	(GET "FILES")))
-
-; (print (GET "PRINT"))
 
 (RULE
 	:target "xv6.pdf"
@@ -401,16 +316,6 @@ _forktest: forktest.o $(ULIB)
 	:target "print"
 	:deps ["xv6.pdf"])
 
-; (QUOTE-RULE #[[
-; xv6.pdf: $(PRINT)
-; 	./runoff
-; 	ls -l xv6.pdf
-; ]])
-
-; (QUOTE-RULE #[[
-; print: xv6.pdf
-; ]])
-
 (RULE
 	:target "bochs "
 	:deps ["fs.img" "xv6.img"]
@@ -418,22 +323,6 @@ _forktest: forktest.o $(ULIB)
 		"if [ ! -e .bochsrc ]; then ln -s dot-bochsrc .bochsrc; fi"
 		"bochs -q"])
 
-; (QUOTE-RULE #[[
-; # run in emulators
-
-; bochs : fs.img xv6.img
-; 	if [ ! -e .bochsrc ]; then ln -s dot-bochsrc .bochsrc; fi
-; 	bochs -q
-; ]])
-
-; (QUOTE-RULE #[[
-; # try to generate a unique GDB port
-; GDBPORT = $(shell expr `id -u` % 5000 + 25000)
-; # QEMU's gdb stub command line changed in 0.11
-; QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
-; 	then echo "-gdb tcp::$(GDBPORT)"; \
-; 	else echo "-s -p $(GDBPORT)"; fi)
-; ]])
 (defn is-valid-cmd [cmd]
 	(let [val (RUN-SAFE (+ "which " cmd))]
 		(if (!= val "")
@@ -455,14 +344,6 @@ _forktest: forktest.o $(ULIB)
 		(+ "-gdb tcp::" (GET-STR "GDBPORT"))
 		(+ "-s -p " (GET-STR "GDBPORT"))))
 
-
-; (QUOTE-RULE #[[
-; ifndef CPUS
-; CPUS := 2
-; endif
-; QEMUOPTS = -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp $(CPUS) -m 512 $(QEMUEXTRA)
-; ]])
-
 (SET "CPUS" 2)
 (SET "QEMUOPTS"  
 	 (+ "-drive file=fs.img,index=1,media=disk,format=raw -drive "
@@ -478,22 +359,12 @@ _forktest: forktest.o $(ULIB)
 		["$QEMU" "-serial mon:stdio" "$QEMUOPTS"]
 	])
 
-; (QUOTE-RULE #[[
-; qemu: fs.img xv6.img
-; 	$(QEMU) -serial mon:stdio $(QEMUOPTS)
-; ]])
-
 (RULE
 	:target "qemu-memfs"
 	:deps ["xv6memfs.img"]
 	:recipes [
 		["$QEMU" "-drive file=xv6memfs.img,index=0,media=disk,format=raw -smp" "$CPUS" "-m 256"]
 	])
-
-; (QUOTE-RULE #[[
-; qemu-memfs: xv6memfs.img
-; 	$(QEMU) -drive file=xv6memfs.img,index=0,media=disk,format=raw -smp $(CPUS) -m 256
-; ]])
 
 (RULE
 	:target "qemu-nox"
@@ -502,22 +373,12 @@ _forktest: forktest.o $(ULIB)
 		["$QEMU" "-nographic" "$QEMUOPTS"]
 	])
 
-; (QUOTE-RULE #[[
-; qemu-nox: fs.img xv6.img
-; 	$(QEMU) -nographic $(QEMUOPTS)
-; ]])
-
 (RULE 
 	:target ".gdbinit" 
 	:deps [".gdbinit.tmpl"]
 	:recipes [
 		(+ "sed \"s/localhost:1234/localhost:" (GET-STR "GDBPORT") "/\" < $^ > $@")
 	])
-
-; (QUOTE-RULE #[[
-; .gdbinit: .gdbinit.tmpl
-; 	sed "s/localhost:1234/localhost:$(GDBPORT)/" < $^ > $@
-; ]])
 
 (RULE
 	:target "qemu-gdb"
@@ -527,12 +388,6 @@ _forktest: forktest.o $(ULIB)
 		["$QEMU" "-serial mon:stdio" "$QEMUOPTS" "-S" "$QEMUGDB"]
 	])
 
-; (QUOTE-RULE #[[
-; qemu-gdb: fs.img xv6.img .gdbinit
-; 	@echo "*** Now run 'gdb'." 1>&2
-; 	$(QEMU) -serial mon:stdio $(QEMUOPTS) -S $(QEMUGDB)
-; ]])
-
 (RULE
 	:target "qemu-nox-gdb"
 	:deps ["fs.img" "xv6.img" ".gdbinit"]
@@ -540,27 +395,6 @@ _forktest: forktest.o $(ULIB)
 		"@echo \"*** Now run 'gdb'.\" 1>&2"
 		["$QEMU" "-nographic" "$QEMUOPTS" "-S" "$QEMUGDB"]	
 	])
-
-; (QUOTE-RULE #[[
-; qemu-nox-gdb: fs.img xv6.img .gdbinit
-; 	@echo "*** Now run 'gdb'." 1>&2
-; 	$(QEMU) -nographic $(QEMUOPTS) -S $(QEMUGDB)
-; ]])
-
-; (QUOTE-RULE #[[
-; # CUT HERE
-; # prepare dist for students
-; # after running make dist, probably want to
-; # rename it to rev0 or rev1 or so on and then
-; # check in that version.
-
-; EXTRA=\
-; 	mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c\
-; 	ln.c ls.c mkdir.c rm.c stressfs.c usertests.c wc.c zombie.c\
-; 	printf.c umalloc.c\
-; 	README dot-bochsrc *.pl toc.* runoff runoff1 runoff.list\
-; 	.gdbinit.tmpl gdbutil\
-; ]])
 
 (SET "EXTRA" [
 	"mkfs.c ulib.c user.h cat.c echo.c forktest.c grep.c kill.c"
@@ -583,19 +417,6 @@ _forktest: forktest.o $(ULIB)
 		"echo >dist/runoff.spec"
 		["cp" "$EXTRA" "dist"] ])
 
-; (QUOTE-RULE #[[
-; dist:
-; 	rm -rf dist
-; 	mkdir dist
-; 	for i in $(FILES); \
-; 	do \
-; 		grep -v PAGEBREAK $$i >dist/$$i; \
-; 	done
-; 	sed '/CUT HERE/,$$d' Makefile >dist/Makefile
-; 	echo >dist/runoff.spec
-; 	cp $(EXTRA) dist
-; ]])
-
 (RULE
 	:target "dist-test"
 	:phony True
@@ -610,18 +431,6 @@ _forktest: forktest.o $(ULIB)
 		"cd dist-test; $(MAKE) qemu"		
 	])
 
-; (QUOTE-RULE #[[
-; dist-test:
-; 	rm -rf dist
-; 	make dist
-; 	rm -rf dist-test
-; 	mkdir dist-test
-; 	cp dist/* dist-test
-; 	cd dist-test; $(MAKE) print
-; 	cd dist-test; $(MAKE) bochs || true
-; 	cd dist-test; $(MAKE) qemu
-; ]])
-
 (RULE
 	:target "tar"
 	:recipes [
@@ -630,17 +439,3 @@ _forktest: forktest.o $(ULIB)
 		"cp dist/* dist/.gdbinit.tmpl /tmp/xv6"
 		"(cd /tmp; tar cf - xv6) | gzip >xv6-rev10.tar.gz "
 	])
-
-; (QUOTE-RULE #[[
-; # update this rule (change rev#) when it is time to
-; # make a new revision.
-; tar:
-; 	rm -rf /tmp/xv6
-; 	mkdir -p /tmp/xv6
-; 	cp dist/* dist/.gdbinit.tmpl /tmp/xv6
-; 	(cd /tmp; tar cf - xv6) | gzip >xv6-rev10.tar.gz  # the next one will be 10 (9/17)
-; ]])
-
-; (QUOTE-RULE #[[
-; .PHONY: dist-test dist
-; ]])
