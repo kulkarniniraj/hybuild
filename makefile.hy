@@ -169,21 +169,23 @@ endif
 		"./sign.pl bootblock"
 	])
 
-(QUOTE-RULE #[[
-entryother: entryother.S
-	$(CC) $(CFLAGS) -fno-pic -nostdinc -I. -c entryother.S
-	$(LD) $(LDFLAGS) -N -e start -Ttext 0x7000 -o bootblockother.o entryother.o
-	$(OBJCOPY) -S -O binary -j .text bootblockother.o entryother
-	$(OBJDUMP) -S bootblockother.o > entryother.asm
-]])
+(RULE
+	:target "entryother"
+	:deps ["entryother.S"]
+	:recipes [
+		"$(CC) $(CFLAGS) -fno-pic -nostdinc -I. -c entryother.S"
+		"$(LD) $(LDFLAGS) -N -e start -Ttext 0x7000 -o bootblockother.o entryother.o"
+		"$(OBJCOPY) -S -O binary -j .text bootblockother.o entryother"
+		"$(OBJDUMP) -S bootblockother.o > entryother.asm"])
 
-(QUOTE-RULE #[[
-initcode: initcode.S
-	$(CC) $(CFLAGS) -nostdinc -I. -c initcode.S
-	$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o initcode.out initcode.o
-	$(OBJCOPY) -S -O binary initcode.out initcode
-	$(OBJDUMP) -S initcode.o > initcode.asm
-]])
+(RULE
+	:target "initcode"
+	:deps ["initcode.S"]
+	:recipes [
+		"$(CC) $(CFLAGS) -nostdinc -I. -c initcode.S"
+		"$(LD) $(LDFLAGS) -N -e start -Ttext 0 -o initcode.out initcode.o"
+		"$(OBJCOPY) -S -O binary initcode.out initcode"
+		"$(OBJDUMP) -S initcode.o > initcode.asm"])
 
 (RULE
 	:target "kernel"
@@ -195,18 +197,31 @@ initcode: initcode.S
 	])
 
 (QUOTE-RULE #[[
-# kernelmemfs is a copy of kernel that maintains the
-# disk image in memory instead of writing to a disk.
-# This is not so useful for testing persistent storage or
-# exploring disk buffering implementations, but it is
-# great for testing the kernel on real hardware without
-# needing a scratch disk.
 MEMFSOBJS = $(filter-out ide.o,$(OBJS)) memide.o
-kernelmemfs: $(MEMFSOBJS) entry.o entryother initcode kernel.ld fs.img
-	$(LD) $(LDFLAGS) -T kernel.ld -o kernelmemfs entry.o  $(MEMFSOBJS) -b binary initcode entryother fs.img
-	$(OBJDUMP) -S kernelmemfs > kernelmemfs.asm
-	$(OBJDUMP) -t kernelmemfs | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernelmemfs.sym
 ]])
+
+
+(RULE
+	:target "kernelmemfs" 
+	:deps ["$(MEMFSOBJS)" "entry.o" "entryother" "initcode" "kernel.ld" "fs.img"]
+	:recipes [
+		"$(LD) $(LDFLAGS) -T kernel.ld -o kernelmemfs entry.o  $(MEMFSOBJS) -b binary initcode entryother fs.img"
+		"$(OBJDUMP) -S kernelmemfs > kernelmemfs.asm"
+		"$(OBJDUMP) -t kernelmemfs | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernelmemfs.sym"])
+
+; (QUOTE-RULE #[[
+; # kernelmemfs is a copy of kernel that maintains the
+; # disk image in memory instead of writing to a disk.
+; # This is not so useful for testing persistent storage or
+; # exploring disk buffering implementations, but it is
+; # great for testing the kernel on real hardware without
+; # needing a scratch disk.
+; MEMFSOBJS = $(filter-out ide.o,$(OBJS)) memide.o
+; kernelmemfs: $(MEMFSOBJS) entry.o entryother initcode kernel.ld fs.img
+; 	$(LD) $(LDFLAGS) -T kernel.ld -o kernelmemfs entry.o  $(MEMFSOBJS) -b binary initcode entryother fs.img
+; 	$(OBJDUMP) -S kernelmemfs > kernelmemfs.asm
+; 	$(OBJDUMP) -t kernelmemfs | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernelmemfs.sym
+; ]])
 
 (RULE
 	:target "tags"
@@ -222,24 +237,23 @@ kernelmemfs: $(MEMFSOBJS) entry.o entryother initcode kernel.ld fs.img
 		"./vectors.pl > vectors.S"	
 	])
 
-(QUOTE-RULE #[[
-ULIB = ulib.o usys.o printf.o umalloc.o
-]])
+(SET "ULIB" ["ulib.o" "usys.o" "printf.o" "umalloc.o"])
 
-(QUOTE-RULE #[[
-_%: %.o $(ULIB)
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^
-	$(OBJDUMP) -S $@ > $*.asm
-	$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym
-]])
+(RULE
+	:target "_%" 
+	:deps (+ ["%.o"]  (GET "ULIB"))
+	:recipes [
+		"$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^"
+		"$(OBJDUMP) -S $@ > $*.asm"
+		"$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym" ])
 
-(QUOTE-RULE #[[
-_forktest: forktest.o $(ULIB)
-	# forktest has less library code linked in - needs to be small
-	# in order to be able to max out the proc table.
-	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o _forktest forktest.o ulib.o usys.o
-	$(OBJDUMP) -S _forktest > forktest.asm
-]])
+(RULE
+	:target "_forktest" 
+	:deps (+ ["forktest.o"] (GET "ULIB"))
+	:recipes [
+		"$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o _forktest forktest.o ulib.o usys.o"
+		"$(OBJDUMP) -S _forktest > forktest.asm"
+	])
 
 (RULE 
 	:target "mkfs"
