@@ -200,28 +200,15 @@ endif
 MEMFSOBJS = $(filter-out ide.o,$(OBJS)) memide.o
 ]])
 
-
-(RULE
-	:target "kernelmemfs" 
-	:deps ["$(MEMFSOBJS)" "entry.o" "entryother" "initcode" "kernel.ld" "fs.img"]
-	:recipes [
-		"$(LD) $(LDFLAGS) -T kernel.ld -o kernelmemfs entry.o  $(MEMFSOBJS) -b binary initcode entryother fs.img"
-		"$(OBJDUMP) -S kernelmemfs > kernelmemfs.asm"
-		"$(OBJDUMP) -t kernelmemfs | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernelmemfs.sym"])
-
-; (QUOTE-RULE #[[
-; # kernelmemfs is a copy of kernel that maintains the
-; # disk image in memory instead of writing to a disk.
-; # This is not so useful for testing persistent storage or
-; # exploring disk buffering implementations, but it is
-; # great for testing the kernel on real hardware without
-; # needing a scratch disk.
-; MEMFSOBJS = $(filter-out ide.o,$(OBJS)) memide.o
-; kernelmemfs: $(MEMFSOBJS) entry.o entryother initcode kernel.ld fs.img
-; 	$(LD) $(LDFLAGS) -T kernel.ld -o kernelmemfs entry.o  $(MEMFSOBJS) -b binary initcode entryother fs.img
-; 	$(OBJDUMP) -S kernelmemfs > kernelmemfs.asm
-; 	$(OBJDUMP) -t kernelmemfs | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernelmemfs.sym
-; ]])
+(let [NEWOBJS (+ (list (filter (fn [x] (!= x "ide.o"))
+					 (GET "OBJS"))) ["memide.o"])]
+	(RULE
+		:target "kernelmemfs" 
+		:deps (+ NEWOBJS ["entry.o" "entryother" "initcode" "kernel.ld" "fs.img"])
+		:recipes [
+			(+ ["$LD" "$LDFLAGS" "-T kernel.ld -o kernelmemfs entry.o"]  NEWOBJS ["-b binary initcode entryother fs.img"])
+			["$OBJDUMP" "-S kernelmemfs > kernelmemfs.asm"]
+			["$OBJDUMP" "-t kernelmemfs | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernelmemfs.sym"] ]))
 
 (RULE
 	:target "tags"
@@ -243,16 +230,16 @@ MEMFSOBJS = $(filter-out ide.o,$(OBJS)) memide.o
 	:target "_%" 
 	:deps (+ ["%.o"]  (GET "ULIB"))
 	:recipes [
-		"$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $@ $^"
-		"$(OBJDUMP) -S $@ > $*.asm"
-		"$(OBJDUMP) -t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym" ])
+		["$LD" "$LDFLAGS" "-N -e main -Ttext 0 -o $@ $^"]
+		["$OBJDUMP" "-S $@ > $*.asm"]
+		["$OBJDUMP" "-t $@ | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $*.sym"] ])
 
 (RULE
 	:target "_forktest" 
 	:deps (+ ["forktest.o"] (GET "ULIB"))
 	:recipes [
-		"$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o _forktest forktest.o ulib.o usys.o"
-		"$(OBJDUMP) -S _forktest > forktest.asm"
+		["$LD" "$LDFLAGS" "-N -e main -Ttext 0 -o _forktest forktest.o ulib.o usys.o"]
+		["$OBJDUMP" "-S _forktest > forktest.asm"]
 	])
 
 (RULE 
