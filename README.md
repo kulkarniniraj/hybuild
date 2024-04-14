@@ -36,6 +36,15 @@ python main.py makefile.hy
 
 The generated makefile should work seamlessly and is straightforward to review.
 
+### Convert from existing Makefile:
+Run:
+```bash
+python conver.py makefile-path outputfile-name
+```
+
+## Example:
+Check `makefile.hy` for example conversion.
+
 ## API
 
 - **RULE Syntax**: Demonstrated as mentioned above.
