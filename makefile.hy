@@ -196,10 +196,6 @@ endif
 		" $(OBJDUMP) -t kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > kernel.sym "
 	])
 
-(QUOTE-RULE #[[
-MEMFSOBJS = $(filter-out ide.o,$(OBJS)) memide.o
-]])
-
 (let [NEWOBJS (+ (list (filter (fn [x] (!= x "ide.o"))
 					 (GET "OBJS"))) ["memide.o"])]
 	(RULE
